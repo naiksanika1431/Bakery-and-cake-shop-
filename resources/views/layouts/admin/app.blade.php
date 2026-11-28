@@ -652,11 +652,12 @@
                     <li class="nav-header">Staff &amp; finance</li>
 
                     <li class="nav-item">
-                        <a href="#" class="nav-link">
-                            <i class="nav-icon bi bi-person-badge"></i>
-                            <p>Employees</p>
-                        </a>
-                    </li>
+    <a href="{{ route('admin.employees.index') }}"
+       class="nav-link {{ request()->routeIs('admin.employees.*') ? 'active' : '' }}">
+        <i class="nav-icon bi bi-person-badge"></i>
+        <p>Employees</p>
+    </a>
+</li>
 
                     <li class="nav-item">
                         <a href="#" class="nav-link">

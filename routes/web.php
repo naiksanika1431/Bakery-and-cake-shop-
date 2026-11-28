@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\StockLedgerController;
 use App\Http\Controllers\Admin\SupplierController;
 use App\Http\Controllers\Admin\SupplierPurchaseController;
 use App\Http\Controllers\Admin\CustomCakeOrderController;
+use App\Http\Controllers\Admin\EmployeeController;
 // ==========================================
 // ADMIN / STAFF AUTHENTICATION
 // ==========================================
@@ -140,6 +141,9 @@ Route::put('/raw-materials/{id}', [RawMaterialController::class, 'update'])
         Route::post('/custom-cake-orders/{id}/quotation', [CustomCakeOrderController::class, 'saveQuotation'])
             ->name('custom-cake-orders.quotation.save');
 
+        Route::post('/custom-cake-orders/{id}/quotation/send', [CustomCakeOrderController::class, 'sendQuotation'])
+            ->name('custom-cake-orders.quotation.send');
+
         Route::patch('/custom-cake-orders/{id}/status', [CustomCakeOrderController::class, 'updateStatus'])
             ->name('custom-cake-orders.status.update');
 
@@ -238,6 +242,11 @@ Route::prefix('supplier-purchases')
         Route::post('/{supplierPurchase}/receive', 'receive')->name('receive');
         Route::get('/{supplierPurchase}', 'show')->name('show');
     });
+        // ==========================================
+        // EMPLOYEE MANAGEMENT
+        // ==========================================
+
+        Route::resource('employees', EmployeeController::class);
         // ADMIN PROFILE
         Route::get('/profile', [\App\Http\Controllers\Admin\AdminProfileController::class, 'edit'])
             ->name('profile.edit');
@@ -312,23 +321,3 @@ Route::get('/shop/contact', function () {
 Route::get('/', function () {
     return redirect()->route('super-admin.dashboard');
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

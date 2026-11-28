@@ -515,6 +515,23 @@
                                 </div>
                             </div>
                         </form>
+
+                        @if((float) $order->grand_total > 0 && $order->expected_completion_at)
+                            <div class="info-banner mt-3">
+                                <i class="bi bi-whatsapp"></i>
+                                <span>After sending the quotation to the customer through WhatsApp or another channel, click below to update its status.</span>
+                            </div>
+
+                            <form method="POST"
+                                  action="{{ route('admin.custom-cake-orders.quotation.send', $order->id) }}"
+                                  class="text-end mt-3"
+                                  onsubmit="return confirm('Have you actually sent this quotation to the customer? Confirm only after sending it.');">
+                                @csrf
+                                <button type="submit" class="btn btn-bakery">
+                                    <i class="bi bi-send me-2"></i>Mark Quotation as Sent
+                                </button>
+                            </form>
+                        @endif
                     @else
                         <div class="quotation-summary">
                             <div>

@@ -523,6 +523,43 @@ class CustomCakeOrderController extends Controller
             ->with('success', 'Quotation saved successfully as draft. It has not been sent to the customer.');
     }
 
+    public function sendQuotation(Request $request, $id)
+    {
+        $context = $this->adminContext();
+
+        DB::transaction(function () use ($context, $id) {
+            $order = $this->customCakeOrdersQuery($context)
+                ->lockForUpdate()
+                ->findOrFail($id);
+
+            if (($order->quotation_status ?? 'draft') !== 'draft') {
+                abort(422, 'Only draft quotations can be marked as sent.');
+            }
+
+            if (
+                !$order->grand_total ||
+                $order->grand_total <= 0 ||
+                !$order->expected_completion_at
+            ) {
+                abort(422, 'Save the quotation price and expected completion date before sending.');
+            }
+
+            $order->quotation_status = 'sent';
+            $order->save();
+
+            OrderStatusHistory::create([
+                'order_id' => $order->id,
+                'old_status' => 'draft',
+                'new_status' => 'sent',
+                'updated_by' => auth('web')->id(),
+                'notes' => 'Quotation manually sent to customer via an external channel.',
+            ]);
+        });
+
+        return redirect()
+            ->route('admin.custom-cake-orders.show', $id)
+            ->with('success', 'Quotation marked as sent. The customer can now accept or reject it.');
+    }
     public function updateStatus(Request $request, $id)
     {
         $validated = $request->validate([
