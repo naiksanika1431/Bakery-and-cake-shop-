@@ -762,7 +762,7 @@
 
                 <span class="brand-logo">
                     <span class="brand-name">ZAPCODEX</span>
-                    <span class="brand-tagline">PÂTISSERIE &amp; CAFÉ</span>
+                    <span class="brand-tagline">PATISSERIE &amp; CAF&Eacute;</span>
                 </span>
             </a>
 
@@ -793,11 +793,15 @@
                         </a>
                     </li>
 
+
+                    @auth('customer')
                     <li class="nav-item">
-                        <a class="nav-link" href="#">
+                        <a class="nav-link {{ request()->is('custom-cake-booking*') ? 'active' : '' }}"
+                           href="{{ url('/custom-cake-booking') }}">
                             Custom Cake Booking
                         </a>
                     </li>
+                    @endauth
 
                     <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('customer.about') ? 'active' : '' }}"
@@ -856,16 +860,31 @@
                         <span class="sb-cart-badge">0</span>
                     </a>
 
-                    <!-- Login -->
-                    <a href="#" class="sb-login-link">
-                        Login
-                    </a>
+                    @auth('customer')
+    <a href="{{ route('customer.account') }}" class="sb-login-link">
+        <i class="bi bi-person-circle"></i>
+        {{ Auth::guard('customer')->user()->name }}
+    </a>
 
-                    <!-- Register -->
-                    <a href="#" class="btn-order-online">
-                        Register
-                        <i class="bi bi-arrow-right"></i>
-                    </a>
+    <form action="{{ route('customer.logout') }}" method="POST" class="d-inline">
+        @csrf
+        <button type="submit" class="btn-order-online">
+            Logout
+            <i class="bi bi-box-arrow-right"></i>
+        </button>
+    </form>
+@else
+    <!-- Login -->
+    <a href="{{ route('customer.login') }}" class="sb-login-link">
+        Login
+    </a>
+
+    <!-- Register -->
+    <a href="{{ route('customer.register') }}" class="btn-order-online">
+        Register
+        <i class="bi bi-arrow-right"></i>
+    </a>
+@endauth
 
                 </div>
             </div>
@@ -895,7 +914,7 @@
                     </a>
 
                     <span class="sb-footer-tagline">
-                        PÂTISSERIE &amp; CAFÉ
+                        PATISSERIE &amp; CAF&Eacute;
                     </span>
 
                     <p>
@@ -970,7 +989,7 @@
 
                     <ul class="sb-footer-links">
                         <li>
-                            <a href="#">
+                            <a href="{{ route('customer.account') }}">
                                 <i class="bi bi-arrow-right"></i> My Account
                             </a>
                         </li>
@@ -1051,3 +1070,4 @@
 
 </body>
 </html>
+

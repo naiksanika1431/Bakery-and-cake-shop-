@@ -10,6 +10,7 @@ class Customer extends Model
 {
     protected $fillable = [
         'company_id',
+        'customer_account_id',
         'customer_code',
         'name',
         'phone',
@@ -33,6 +34,11 @@ class Customer extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function customerAccount(): BelongsTo
+    {
+        return $this->belongsTo(CustomerAccount::class);
     }
 
     public function orders(): HasMany

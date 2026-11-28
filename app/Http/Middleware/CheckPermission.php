@@ -13,14 +13,15 @@ class CheckPermission
         Closure $next,
         string $permission
     ): Response {
-        $user = $request->user();
+        // Admin and branch staff authentication uses the web guard.
+        $user = $request->user('web');
 
-        // User must be logged in.
+        // Do not redirect to a login route that does not exist.
         if (!$user) {
-            return redirect()->route('login');
+            abort(401, 'Please log in with an authorized staff account.');
         }
 
-        // Check whether the user has the required permission.
+        // Verify the required permission.
         if (!$user->hasPermission($permission)) {
             abort(403, 'You are not authorized to access this page.');
         }

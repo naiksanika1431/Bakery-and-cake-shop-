@@ -36,6 +36,11 @@ class BranchProduct extends Model
         return $this->hasMany(StockMovement::class);
     }
 
+    public function adjustmentRequests(): HasMany
+    {
+        return $this->hasMany(StockAdjustmentRequest::class);
+    }
+
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);

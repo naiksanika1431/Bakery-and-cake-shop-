@@ -310,6 +310,7 @@ class OrderController extends Controller
             'customer',
             'items.product',
             'items.productVariant',
+            'customCakeDetail',
             'payments',
             'statusHistories.updatedBy',
         ]);
@@ -329,11 +330,12 @@ class OrderController extends Controller
         $order->load([
             'items.product',
             'items.productVariant',
+            'customCakeDetail',
             'payments',
             'statusHistories',
         ]);
 
-        $products = BranchProduct::with([
+        $branchProducts = BranchProduct::with([
             'productVariant.product',
             'productVariant.unit',
         ])
@@ -345,7 +347,17 @@ class OrderController extends Controller
             })
             ->get();
 
-        return view('admin.orders.edit', compact('order', 'products'));
+        $products = $branchProducts
+            ->map(fn ($branchProduct) => $branchProduct->productVariant?->product)
+            ->filter()
+            ->concat($order->items->map(fn ($item) => $item->product)->filter())
+            ->unique('id')
+            ->values();
+
+        $isCustomCakeOnlyOrder = $order->items->isNotEmpty()
+            && $order->items->every(fn ($item) => (bool) $item->is_customized);
+
+        return view('admin.orders.edit', compact('order', 'products', 'isCustomCakeOnlyOrder'));
     }
 
     /**
@@ -357,113 +369,140 @@ class OrderController extends Controller
 
         $this->authorizeOrder($order, $context);
 
-        $validated = $request->validate([
+        $isCustomCakeOnlyOrder = $order->items()->exists()
+            && !$order->items()
+                ->where(function ($query) {
+                    $query->whereNull('is_customized')
+                        ->orWhere('is_customized', false);
+                })
+                ->exists();
+
+        if ($isCustomCakeOnlyOrder) {
+            $validated = $request->validate([
+                'payment_status' => ['required', 'in:pending,paid,partial,failed,refunded'],
+                'order_status' => ['required', 'in:pending,confirmed,processing,ready,completed,cancelled'],
+            ]);
+
+            DB::transaction(function () use ($validated, $context, $order) {
+                $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                $oldStatus = $lockedOrder->order_status;
+
+                $lockedOrder->update([
+                    'payment_status' => $validated['payment_status'],
+                    'order_status' => $validated['order_status'],
+                ]);
+
+                if ($oldStatus !== $lockedOrder->order_status) {
+                    OrderStatusHistory::create([
+                        'order_id' => $lockedOrder->id,
+                        'old_status' => $oldStatus,
+                        'new_status' => $lockedOrder->order_status,
+                        'updated_by' => $context['user']?->id,
+                        'notes' => 'Order status updated.',
+                    ]);
+                }
+            });
+
+            return redirect()
+                ->route('admin.orders.show', $order->id)
+                ->with('success', 'Custom cake order updated successfully.');
+        }
+        $rules = [
             'customer_name' => ['required', 'string', 'max:255'],
             'customer_phone' => ['required', 'string', 'max:20'],
             'customer_email' => ['nullable', 'email', 'max:255'],
-
-            'order_type' => [
-                'required',
-                'in:walk_in,online,phone,delivery,pickup',
-            ],
-
+            'order_type' => ['required', 'in:walk_in,online,phone,delivery,pickup'],
             'delivery_address' => ['nullable', 'string'],
             'delivery_city' => ['nullable', 'string', 'max:255'],
             'delivery_state' => ['nullable', 'string', 'max:255'],
             'delivery_pincode' => ['nullable', 'string', 'max:10'],
-
             'scheduled_at' => ['nullable', 'date'],
-
             'delivery_charge' => ['nullable', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
-
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.product_variant_id' => [
-                'required',
-                'integer',
-                'distinct',
-            ],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'items.*.discount' => ['nullable', 'numeric', 'min:0'],
-            'items.*.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'items.*.customization_details' => ['nullable', 'string'],
-            'items.*.special_instructions' => ['nullable', 'string'],
-
-            'payment_method' => [
-                'nullable',
-                'in:cash,upi,card,online,bank_transfer',
-            ],
-            'payment_status' => [
-                'required',
-                'in:pending,paid,partial,failed,refunded',
-            ],
-            'order_status' => [
-                'required',
-                'in:pending,confirmed,processing,ready,completed,cancelled',
-            ],
-
+            'payment_method' => ['nullable', 'in:cash,upi,card,online,bank_transfer'],
+            'payment_status' => ['required', 'in:pending,paid,partial,failed,refunded'],
+            'order_status' => ['required', 'in:pending,confirmed,processing,ready,completed,cancelled'],
             'notes' => ['nullable', 'string'],
-        ]);
+        ];
 
-        DB::transaction(function () use ($validated, $context, $order) {
+        if (!$isCustomCakeOnlyOrder) {
+            $rules = array_merge($rules, [
+                'items' => ['required', 'array', 'min:1'],
+                'items.*.product_id' => ['required', 'integer', 'distinct'],
+                'items.*.quantity' => ['required', 'integer', 'min:1'],
+                'items.*.discount' => ['nullable', 'numeric', 'min:0'],
+                'items.*.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+                'items.*.customization_details' => ['nullable', 'string'],
+                'items.*.special_instructions' => ['nullable', 'string'],
+            ]);
+        }
 
-            $calculation = $this->calculateItems(
-                $validated['items'],
-                $context
-            );
+        $validated = $request->validate($rules);
 
-            $orderDiscount = (float) ($validated['discount'] ?? 0);
-            $deliveryCharge = (float) ($validated['delivery_charge'] ?? 0);
-
-            if ($orderDiscount > $calculation['subtotal'] - $calculation['item_discount']) {
-                throw ValidationException::withMessages([
-                    'discount' => 'Order discount cannot exceed the remaining subtotal.',
-                ]);
-            }
+        DB::transaction(function () use ($validated, $context, $order, $isCustomCakeOnlyOrder) {
 
             $oldStatus = $order->order_status;
 
-            $discount = $calculation['item_discount'] + $orderDiscount;
+            if ($isCustomCakeOnlyOrder) {
+                // Preserve custom cake quotation and item totals.
+                $subtotal = (float) $order->subtotal;
+                $discount = (float) $order->discount;
+                $taxAmount = (float) $order->tax_amount;
+                $deliveryCharge = (float) $order->delivery_charge;
+                $grandTotal = (float) $order->grand_total;
+            } else {
+                $calculation = $this->calculateItems(
+                    $validated['items'],
+                    $context
+                );
 
-            $grandTotal = round(
-                $calculation['subtotal']
-                - $discount
-                + $calculation['tax_amount']
-                + $deliveryCharge,
-                2
-            );
+                $orderDiscount = (float) ($validated['discount'] ?? 0);
+                $deliveryCharge = (float) ($validated['delivery_charge'] ?? 0);
+
+                if ($orderDiscount > $calculation['subtotal'] - $calculation['item_discount']) {
+                    throw ValidationException::withMessages([
+                        'discount' => 'Order discount cannot exceed the remaining subtotal.',
+                    ]);
+                }
+
+                $discount = $calculation['item_discount'] + $orderDiscount;
+                $subtotal = $calculation['subtotal'];
+                $taxAmount = $calculation['tax_amount'];
+
+                $grandTotal = round(
+                    $subtotal - $discount + $taxAmount + $deliveryCharge,
+                    2
+                );
+            }
 
             $order->update([
                 'customer_name' => $validated['customer_name'],
                 'customer_phone' => $validated['customer_phone'],
                 'customer_email' => $validated['customer_email'] ?? null,
-
                 'order_type' => $validated['order_type'],
-
                 'delivery_address' => $validated['delivery_address'] ?? null,
                 'delivery_city' => $validated['delivery_city'] ?? null,
                 'delivery_state' => $validated['delivery_state'] ?? null,
                 'delivery_pincode' => $validated['delivery_pincode'] ?? null,
-
                 'scheduled_at' => $validated['scheduled_at'] ?? null,
-
                 'payment_method' => $validated['payment_method'] ?? null,
                 'payment_status' => $validated['payment_status'],
                 'order_status' => $validated['order_status'],
-
-                'subtotal' => $calculation['subtotal'],
+                'subtotal' => $subtotal,
                 'discount' => $discount,
-                'tax_amount' => $calculation['tax_amount'],
+                'tax_amount' => $taxAmount,
                 'delivery_charge' => $deliveryCharge,
                 'grand_total' => $grandTotal,
-
                 'notes' => $validated['notes'] ?? null,
             ]);
 
-            $order->items()->delete();
+            // Never delete or recreate custom cake items here.
+            if (!$isCustomCakeOnlyOrder) {
+                $order->items()->delete();
 
-            foreach ($calculation['items'] as $item) {
-                $order->items()->create($item);
+                foreach ($calculation['items'] as $item) {
+                    $order->items()->create($item);
+                }
             }
 
             if ($oldStatus !== $order->order_status) {
@@ -513,21 +552,44 @@ class OrderController extends Controller
 
         foreach ($items as $item) {
 
-            $branchProduct = BranchProduct::with([
+            $branchProductQuery = BranchProduct::with([
                 'productVariant.product',
             ])
                 ->where('branch_id', $context['branch_id'])
-                ->where('product_variant_id', $item['product_variant_id'])
                 ->where('is_available', true)
                 ->whereHas('productVariant.product', function ($query) use ($context) {
                     $query->where('company_id', $context['company_id'])
                         ->where('status', 'active');
-                })
+                });
+
+            if (!empty($item['product_variant_id'])) {
+                // Existing Create Order workflow: use its selected variant.
+                $branchProductQuery->where(
+                    'product_variant_id',
+                    $item['product_variant_id']
+                );
+            } else {
+                // Edit Order workflow: automatically select the first available variant.
+                $productId = (int) ($item['product_id'] ?? 0);
+
+                if ($productId <= 0) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Please select a valid product.',
+                    ]);
+                }
+
+                $branchProductQuery->whereHas('productVariant', function ($query) use ($productId) {
+                    $query->where('product_id', $productId);
+                });
+            }
+
+            $branchProduct = $branchProductQuery
+                ->orderBy('id')
                 ->first();
 
-            if (!$branchProduct) {
+            if (!$branchProduct || !$branchProduct->productVariant) {
                 throw ValidationException::withMessages([
-                    'items' => 'One or more selected product variants are unavailable at this branch.',
+                    'items' => 'The selected product is unavailable at this branch.',
                 ]);
             }
 

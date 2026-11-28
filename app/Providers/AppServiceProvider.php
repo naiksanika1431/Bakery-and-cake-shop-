@@ -16,7 +16,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        View::composer('layouts.customer.app', function ($view) {
+        View::composer('customer.*', function ($view) {
 
             $company = Company::where('company_code', 'DELIGHT')
                 ->where('is_active', true)
@@ -47,3 +47,4 @@ class AppServiceProvider extends ServiceProvider
         });
     }
 }
+

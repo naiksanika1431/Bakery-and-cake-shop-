@@ -14,10 +14,17 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
-        // Register custom middleware aliases
         $middleware->alias([
             'permission' => CheckPermission::class,
         ]);
+
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('shop/*')) {
+                return route('customer.login');
+            }
+
+            return route('admin.login');
+        });
 
     })
     ->withExceptions(function (Exceptions $exceptions): void {

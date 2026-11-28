@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -12,6 +13,7 @@ class Order extends Model
         'company_id',
         'branch_id',
         'customer_id',
+        'customer_account_id',
         'order_number',
         'customer_name',
         'customer_email',
@@ -30,6 +32,12 @@ class Order extends Model
         'tax_amount',
         'delivery_charge',
         'grand_total',
+        'advance_requested',
+        'expected_completion_at',
+        'admin_notes',
+        'quotation_status',
+        'customer_responded_at',
+        'customer_rejection_reason',
         'notes',
         'scheduled_at',
         'placed_at',
@@ -43,6 +51,9 @@ class Order extends Model
             'tax_amount' => 'decimal:2',
             'delivery_charge' => 'decimal:2',
             'grand_total' => 'decimal:2',
+            'advance_requested' => 'decimal:2',
+            'expected_completion_at' => 'datetime',
+            'customer_responded_at' => 'datetime',
             'scheduled_at' => 'datetime',
             'placed_at' => 'datetime',
         ];
@@ -63,6 +74,11 @@ class Order extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    public function customerAccount(): BelongsTo
+    {
+        return $this->belongsTo(CustomerAccount::class);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
@@ -76,5 +92,15 @@ class Order extends Model
     public function statusHistories(): HasMany
     {
         return $this->hasMany(OrderStatusHistory::class);
+    }
+
+    public function customCakeDetail(): HasOne
+    {
+        return $this->hasOne(CustomCakeDetail::class);
+    }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(CustomCakeNotificationLog::class);
     }
 }

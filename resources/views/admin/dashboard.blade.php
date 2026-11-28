@@ -342,7 +342,7 @@
 
                     <a href="{{ route('admin.products.index') }}" class="sb-tile pink">
                         <span class="ico"><i class="bi bi-plus-circle"></i></span>
-                        <span class="txt"><strong>Add New Product</strong><small>Custom cakes and bulk orders</small></span>
+                        <span class="txt"><strong>Add New Product</strong><small>Browse and manage bakery products</small></span>
                         <span class="sb-round"><i class="bi bi-arrow-right"></i></span>
                     </a>
 

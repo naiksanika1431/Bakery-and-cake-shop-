@@ -10,7 +10,6 @@ class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Create default roles
         $roles = [
             [
                 'role_name' => 'Super Admin',
@@ -56,7 +55,6 @@ class RolePermissionSeeder extends Seeder
             );
         }
 
-        // 2. Define system permissions
         $permissions = [
             'dashboard' => [
                 'dashboard.view' => 'View Dashboard',
@@ -93,6 +91,7 @@ class RolePermissionSeeder extends Seeder
             'inventory' => [
                 'inventory.view' => 'View Inventory',
                 'inventory.manage' => 'Manage Inventory',
+                'inventory.approve' => 'Approve Stock Adjustments',
             ],
 
             'suppliers' => [
@@ -119,7 +118,6 @@ class RolePermissionSeeder extends Seeder
                 'reports.view' => 'View Reports',
                 'reports.export' => 'Export Reports',
             ],
-
             'administration' => [
                 'branches.manage' => 'Manage Branches',
                 'users.manage' => 'Manage Users',
@@ -144,46 +142,94 @@ class RolePermissionSeeder extends Seeder
             }
         }
 
-        // 3. Assign permissions to roles
         $rolePermissions = [
             'super_admin' => array_keys($permissionIds),
 
             'branch_admin' => [
                 'dashboard.view',
-                'orders.view', 'orders.create', 'orders.update', 'orders.cancel',
+
+                'orders.view',
+                'orders.create',
+                'orders.update',
+                'orders.cancel',
+
                 'pos.access',
-                'customers.view', 'customers.create', 'customers.update',
-                'products.view', 'products.create', 'products.update', 'products.delete',
+
+                'customers.view',
+                'customers.create',
+                'customers.update',
+
+                'products.view',
+                'products.create',
+                'products.update',
+                'products.delete',
+
                 'categories.manage',
-                'inventory.view', 'inventory.manage',
+
+                'inventory.view',
+                'inventory.manage',
+                'inventory.approve',
+
                 'suppliers.manage',
-                'purchases.view', 'purchases.create', 'purchases.update',
-                'employees.view', 'employees.manage',
-                'expenses.view', 'expenses.manage',
-                'reports.view', 'reports.export',
+
+                'purchases.view',
+                'purchases.create',
+                'purchases.update',
+
+                'employees.view',
+                'employees.manage',
+
+                'expenses.view',
+                'expenses.manage',
+
+                'reports.view',
+                'reports.export',
                 'users.manage',
             ],
 
             'manager' => [
                 'dashboard.view',
-                'orders.view', 'orders.create', 'orders.update',
+
+                'orders.view',
+                'orders.create',
+                'orders.update',
+
                 'pos.access',
-                'customers.view', 'customers.create', 'customers.update',
-                'products.view', 'products.update',
+
+                'customers.view',
+                'customers.create',
+                'customers.update',
+
+                'products.view',
+                'products.update',
+
                 'categories.manage',
-                'inventory.view', 'inventory.manage',
+
+                'inventory.view',
+                'inventory.manage',
+
                 'suppliers.manage',
-                'purchases.view', 'purchases.create', 'purchases.update',
+
+                'purchases.view',
+                'purchases.create',
+                'purchases.update',
+
                 'employees.view',
-                'expenses.view', 'expenses.manage',
-                'reports.view', 'reports.export',
+
+                'expenses.view',
+                'expenses.manage',
+
+                'reports.view',
+                'reports.export',
             ],
 
             'cashier' => [
                 'dashboard.view',
-                'orders.view', 'orders.create',
+                'orders.view',
+                'orders.create',
                 'pos.access',
-                'customers.view', 'customers.create',
+                'customers.view',
+                'customers.create',
                 'products.view',
             ],
 

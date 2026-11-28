@@ -3,6 +3,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Customer\ShopController;
+use App\Http\Controllers\Customer\CustomerAuthController;
+use App\Http\Controllers\Customer\CustomCakeOrderController as CustomerCustomCakeOrderController;
 
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\ProductController;
@@ -11,19 +13,40 @@ use App\Http\Controllers\Admin\FinishedGoodsController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\POSController;
 use App\Http\Controllers\Admin\StockController;
+use App\Http\Controllers\Admin\AdminAuthController;
 
 
 
 use App\Http\Controllers\Admin\StockLedgerController;
 use App\Http\Controllers\Admin\SupplierController;
 use App\Http\Controllers\Admin\SupplierPurchaseController;
+use App\Http\Controllers\Admin\CustomCakeOrderController;
+// ==========================================
+// ADMIN / STAFF AUTHENTICATION
+// ==========================================
+
+Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])
+    ->name('admin.login');
+
+Route::post('/admin/login', [AdminAuthController::class, 'login'])
+    ->name('admin.login.submit');
+
+Route::post('/admin/logout', [AdminAuthController::class, 'logout'])
+    ->middleware('auth:web')
+    ->name('admin.logout');
+
+
 // ==========================================
 // SUPER ADMIN
 // ==========================================
 
 Route::get('/super-admin/dashboard', function () {
+    if (auth('web')->user()?->role?->role_code !== 'super_admin') {
+        abort(403, 'Only Super Admin can access this page.');
+    }
+
     return view('super-admin.dashboard');
-})->name('super-admin.dashboard');
+})->middleware('auth:web')->name('super-admin.dashboard');
 
 
 // ==========================================
@@ -32,6 +55,7 @@ Route::get('/super-admin/dashboard', function () {
 
 Route::prefix('admin')
     ->name('admin.')
+    ->middleware('auth:web')
     ->group(function () {
 
         // Admin Dashboard
@@ -64,6 +88,14 @@ Route::get('/stock-ledger', [StockLedgerController::class, 'index'])
 // FINISHED GOODS STOCK
 Route::get('/finished-goods', [FinishedGoodsController::class, 'index'])
     ->name('stock.finished-goods');
+Route::post('/finished-goods/adjustments', [FinishedGoodsController::class, 'storeAdjustment'])
+    ->name('stock.finished-goods.adjustments.store');
+
+Route::post('/finished-goods/adjustments/{adjustment}/approve', [FinishedGoodsController::class, 'approveAdjustment'])
+    ->name('stock.finished-goods.adjustments.approve');
+
+Route::post('/finished-goods/adjustments/{adjustment}/reject', [FinishedGoodsController::class, 'rejectAdjustment'])
+    ->name('stock.finished-goods.adjustments.reject');
 // RAW MATERIAL MANAGEMENT
 Route::get('/raw-materials', [RawMaterialController::class, 'index'])
     ->name('stock.raw-materials');
@@ -89,6 +121,27 @@ Route::put('/raw-materials/{id}', [RawMaterialController::class, 'update'])
         // ==========================================
 
         Route::resource('orders', OrderController::class);
+
+        // CUSTOM CAKE ORDER MANAGEMENT
+        Route::get('/custom-cake-orders', [CustomCakeOrderController::class, 'index'])
+            ->name('custom-cake-orders.index');
+        Route::get('/custom-cake-orders/create', [CustomCakeOrderController::class, 'create'])
+            ->name('custom-cake-orders.create');
+        Route::post('/custom-cake-orders', [CustomCakeOrderController::class, 'store'])
+            ->name('custom-cake-orders.store');
+
+        Route::get('/custom-cake-orders/{id}/edit', [CustomCakeOrderController::class, 'edit'])
+            ->name('custom-cake-orders.edit');
+
+        Route::put('/custom-cake-orders/{id}', [CustomCakeOrderController::class, 'update'])
+            ->name('custom-cake-orders.update');
+        Route::get('/custom-cake-orders/{id}', [CustomCakeOrderController::class, 'show'])
+            ->name('custom-cake-orders.show');
+        Route::post('/custom-cake-orders/{id}/quotation', [CustomCakeOrderController::class, 'saveQuotation'])
+            ->name('custom-cake-orders.quotation.save');
+
+        Route::patch('/custom-cake-orders/{id}/status', [CustomCakeOrderController::class, 'updateStatus'])
+            ->name('custom-cake-orders.status.update');
 
 
         // ==========================================
@@ -126,6 +179,51 @@ Route::put('/raw-materials/{id}', [RawMaterialController::class, 'update'])
 
             });
 
+        // CUSTOMER MANAGEMENT
+        Route::get('/customers', [\App\Http\Controllers\Admin\CustomerController::class, 'index'])
+            ->middleware('permission:customers.view')
+            ->name('customers.index');
+
+        Route::get('/customers/create', [\App\Http\Controllers\Admin\CustomerController::class, 'create'])
+            ->middleware('permission:customers.create')
+            ->name('customers.create');
+
+        Route::post('/customers', [\App\Http\Controllers\Admin\CustomerController::class, 'store'])
+            ->middleware('permission:customers.create')
+            ->name('customers.store');
+
+        Route::get('/customers/{id}/edit', [\App\Http\Controllers\Admin\CustomerController::class, 'edit'])
+            ->middleware('permission:customers.update')
+            ->name('customers.edit');
+
+        Route::put('/customers/{id}', [\App\Http\Controllers\Admin\CustomerController::class, 'update'])
+            ->middleware('permission:customers.update')
+            ->name('customers.update');
+
+        Route::get('/customers/{id}', [\App\Http\Controllers\Admin\CustomerController::class, 'show'])
+            ->middleware('permission:customers.view')
+            ->name('customers.show');
+
+        // CUSTOMER LEDGER
+        Route::get('/customer-ledger', [\App\Http\Controllers\Admin\CustomerLedgerController::class, 'index'])
+            ->middleware('permission:customers.view')
+            ->name('customer-ledger.index');
+
+        Route::get('/customer-ledger/{id}', [\App\Http\Controllers\Admin\CustomerLedgerController::class, 'show'])
+            ->middleware('permission:customers.view')
+            ->name('customer-ledger.show');
+        // CUSTOMER PAYMENTS
+        Route::get('/customer-payments', [\App\Http\Controllers\Admin\CustomerPaymentController::class, 'index'])
+            ->middleware('permission:customers.view')
+            ->name('customer-payments.index');
+
+        Route::post('/customer-payments', [\App\Http\Controllers\Admin\CustomerPaymentController::class, 'store'])
+            ->middleware('permission:customers.update')
+            ->name('customer-payments.store');
+
+        Route::get('/customer-payments/history', [\App\Http\Controllers\Admin\CustomerPaymentController::class, 'history'])
+            ->middleware('permission:customers.view')
+            ->name('customer-payments.history');
         // SUPPLIER MANAGEMENT
         Route::resource('suppliers', SupplierController::class)->except(['destroy']);
 
@@ -140,16 +238,53 @@ Route::prefix('supplier-purchases')
         Route::post('/{supplierPurchase}/receive', 'receive')->name('receive');
         Route::get('/{supplierPurchase}', 'show')->name('show');
     });
+        // ADMIN PROFILE
+        Route::get('/profile', [\App\Http\Controllers\Admin\AdminProfileController::class, 'edit'])
+            ->name('profile.edit');
 
-    });
-
-
+        Route::put('/profile', [\App\Http\Controllers\Admin\AdminProfileController::class, 'update'])
+            ->name('profile.update');
+});
 // ==========================================
 // CUSTOMER WEBSITE
 // ==========================================
 
 // Home Page
 Route::get('/shop', [ShopController::class, 'home'])->name('customer.home');
+// Custom Cake Booking
+Route::get('/custom-cake-booking', function () {
+    return view('customer.custom-cake.booking');
+})->middleware('auth:customer')->name('customer.custom-cake-orders.create');
+Route::post('/custom-cake-booking', [CustomerCustomCakeOrderController::class, 'store'])->middleware('auth:customer')->name('customer.custom-cake-orders.store');
+// Customer Account
+Route::get('/shop/account', [CustomerAuthController::class, 'account'])
+    ->middleware('auth:customer')
+    ->name('customer.account');
+
+// Customer Custom Cake Quotation Response
+Route::post('/shop/account/custom-cake-orders/{id}/accept', [CustomerCustomCakeOrderController::class, 'acceptQuotation'])
+    ->middleware('auth:customer')
+    ->name('customer.custom-cake-orders.accept');
+
+Route::post('/shop/account/custom-cake-orders/{id}/reject', [CustomerCustomCakeOrderController::class, 'rejectQuotation'])
+    ->middleware('auth:customer')
+    ->name('customer.custom-cake-orders.reject');
+// Customer Authentication
+Route::get('/shop/login', [CustomerAuthController::class, 'showLogin'])
+    ->name('customer.login');
+
+Route::post('/shop/login', [CustomerAuthController::class, 'login'])
+    ->name('customer.login.submit');
+
+Route::get('/shop/register', [CustomerAuthController::class, 'showRegister'])
+    ->name('customer.register');
+
+Route::post('/shop/register', [CustomerAuthController::class, 'register'])
+    ->name('customer.register.submit');
+
+Route::post('/shop/logout', [CustomerAuthController::class, 'logout'])
+    ->middleware('auth:customer')
+    ->name('customer.logout');
 // Customer Branch Selection
 Route::post('/shop/select-branch', [ShopController::class, 'selectBranch'])
     ->name('customer.branch.select');
@@ -170,8 +305,6 @@ Route::get('/shop/about', function () {
 Route::get('/shop/contact', function () {
     return view('customer.contact');
 })->name('customer.contact');
-
-
 // ==========================================
 // DEFAULT ROUTE
 // ==========================================
@@ -179,6 +312,15 @@ Route::get('/shop/contact', function () {
 Route::get('/', function () {
     return redirect()->route('super-admin.dashboard');
 });
+
+
+
+
+
+
+
+
+
 
 
 

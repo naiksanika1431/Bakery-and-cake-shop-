@@ -36,4 +36,16 @@ return [
         'secure' => true,
     ],
 
+    'meta_whatsapp' => [
+        'api_version' => env('META_WHATSAPP_API_VERSION', 'v27.0'),
+        'phone_number_id' => env('META_WHATSAPP_PHONE_NUMBER_ID'),
+        'access_token' => env('META_WHATSAPP_ACCESS_TOKEN'),
+        'template_name' => env('META_WHATSAPP_TEMPLATE_NAME', 'custom_cake_quotation'),
+        'template_language' => env('META_WHATSAPP_TEMPLATE_LANGUAGE', 'en'),
+    ],
+
+    'msg91' => [
+        'auth_key' => env('MSG91_AUTH_KEY'),
+        'template_id' => env('MSG91_TEMPLATE_ID'),
+    ],
 ];
